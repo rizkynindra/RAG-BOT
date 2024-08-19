@@ -70,6 +70,7 @@ class EventHandler(AssistantEventHandler):
 
 key = os.getenv("OPENAI_API_KEY")
 assistant_id = os.getenv("ASSISTANT_ID")
+vect_id = os.getenv("VECTOR_STORE_ID")
 
 client = OpenAI(api_key=key)
 
@@ -80,11 +81,10 @@ instructions = """
     saya hanya bisa memberikan informasi seputar BPJS Ketenagakerjaan'. 
     """
 
-assistant = client.beta.assistants.create(
-    name="BPJSTK Assistant",
-    instructions=instructions,
-    model="gpt-3.5-turbo",
-    tools=[{"type": "file_search"}],
+#Update the assistant with a vector store
+assistant = client.beta.assistants.update(
+    assistant_id=assistant_id,
+    tool_resources={"file_search": {"vector_store_ids": [vect_id]}},
 )
 
 st.title("💬 BPJSTK Chatbot v1.0.0")
@@ -98,10 +98,10 @@ if "assistant_text" not in st.session_state:
     st.session_state.assistant_text = [""]
 
 if "thread_id" not in st.session_state:
-    vector_key = os.getenv("VECTOR_STORE_ID")
-    thread_id = startAssistantThread(instructions, vector_key)
-    # thread_id = client.beta.threads.create()
-    st.session_state.thread_id = thread_id
+    # vector_key = os.getenv("VECTOR_STORE_ID")
+    # thread_id = startAssistantThread(instructions, vector_key)
+    thread = client.beta.threads.create()
+    st.session_state.thread_id = thread.id
 
 if "text_boxes" not in st.session_state:
     st.session_state.text_boxes = []
@@ -130,5 +130,5 @@ if prompt := st.chat_input("Enter your message"):
     with client.beta.threads.runs.stream(thread_id=st.session_state.thread_id,
                                          assistant_id=assistant.id,
                                          event_handler=EventHandler(),
-                                         temperature=0) as stream:
+                                         temperature=1) as stream:
         stream.until_done()
